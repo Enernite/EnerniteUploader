@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>232</width>
-    <height>141</height>
+    <height>220</height> <!-- Adjusted height to accommodate new elements -->
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,11 +16,76 @@
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout">
     <item row="0" column="0">
-     <widget class="QLabel" name="label">
+     <widget class="QLabel" name="usernameLabel">
       <property name="text">
-       <string>Replace this QLabel
-with the desired
-plugin content.</string>
+       <string>Username:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QLineEdit" name="usernameField"/>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="passwordLabel">
+      <property name="text">
+       <string>Password:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLineEdit" name="passwordField">
+      <property name="echoMode">
+       <enum>QLineEdit::Password</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0" colspan="2">
+     <widget class="QPushButton" name="signInButton">
+      <property name="text">
+       <string>Sign In</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="2">
+     <widget class="QPushButton" name="uploadToProjectButton">
+      <property name="text">
+       <string>Upload to Project</string>
+      </property>
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    
+    <!-- New item: Successfully logged in text field -->
+    <item row="4" column="0" columnspan="2">
+     <widget class="QLabel" name="loggedInTextLabel">
+      <property name="visible">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Successfully logged in as: {Username}</string>
+      </property>
+     </widget>
+    </item>
+    
+    <!-- New item: Loader bar -->
+    <item row="5" column="0" columnspan="2">
+     <widget class="QProgressBar" name="loaderProgressBar">
+      <property name="hidden">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+
+    <!-- New item: Project uploaded text field -->
+    <item row="6" column="0" columnspan="2">
+     <widget class="QLabel" name="projectUploadedTextLabel">
+      <property name="hidden">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Project uploaded and available at: {LINK}</string>
       </property>
      </widget>
     </item>

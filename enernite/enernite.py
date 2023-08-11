@@ -31,6 +31,15 @@ from .resources import *
 from .enernite_dockwidget import EnerniteUploaderDockWidget
 import os.path
 
+import requests
+
+from qgis.core import QgsMessageLog, Qgis
+
+print("V9")
+
+
+
+
 
 class EnerniteUploader:
     """QGIS Plugin Implementation."""
@@ -173,7 +182,7 @@ class EnerniteUploader:
             text=self.tr(u'EnerniteUpload'),
             callback=self.run,
             parent=self.iface.mainWindow())
-
+        
     #--------------------------------------------------------------------------
 
     def onClosePlugin(self):
@@ -223,6 +232,7 @@ class EnerniteUploader:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = EnerniteUploaderDockWidget()
 
+
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
@@ -230,3 +240,4 @@ class EnerniteUploader:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+

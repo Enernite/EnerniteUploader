@@ -12,20 +12,25 @@
         email                : marius@enernite.com
  ***************************************************************************/
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+
 """
 
 import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
+
+from qgis.core import QgsCredentials
+
+from qgis.core import QgsProject, QgsVectorLayer, QgsJsonUtils
+
+import json
+
+
+import requests
+
+from .enernite_dockwidget_base import Ui_EnerniteUploaderDockWidgetBase
+
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'enernite_dockwidget_base.ui'))
@@ -43,7 +48,176 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # self.<objectname>, and you can use autoconnect slots - see
         # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
-        self.setupUi(self)
+
+        self.active_workspace = None
+        self.uid = None
+        self.bearer_token = None 
+        self.error_message = None
+        
+        self.ui = Ui_EnerniteUploaderDockWidgetBase()
+
+        self.ui.setupUi(self)
+        print("INIT UI")
+
+        self.ui.signInButton.clicked.connect(self.on_sign_in_clicked)
+        self.ui.uploadToProjectButton.clicked.connect(self.on_upload_to_project_clicked)
+
+    def on_sign_in_clicked(self):
+        username = self.ui.usernameField.text()
+        password = self.ui.passwordField.text()
+
+        print(username)
+
+        url = 'https://api.enernite.com/auth/login'
+        headers = {
+            'accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        data = {
+            'username': username,
+            'password': password,
+        }
+
+        response = requests.post(url, headers=headers, data=data)
+
+        # We need to store the token.
+
+        if response.status_code == 200:
+            # Successfully logged in
+
+            # We need to store the bearer token to a variable 
+            self.bearer_token = response.json()["access_token"]
+
+            # We set the UploadToProject to be enabled
+            self.ui.uploadToProjectButton.setEnabled(True)
+            self.ui.passwordField.hide()
+            self.ui.signInButton.hide()
+            self.ui.passwordLabel.hide()
+
+        else:
+            # Handle the error
+            # You may want to display an error message to the user
+            print("Password was not correct")
+    
+    def on_upload_to_project_clicked(self):
+        print("Initiates the uploading sequence")
+
+        # We need to retrieve the workspace and userID of the user, it is OK if this is done each time the user clicks "UploadToPorject"
+
+        try:
+            url = 'https://api.enernite.com/auth/user/'
+            headers = {
+                'accept': 'application/json',
+                'Authorization': "Bearer " + str(self.bearer_token)
+                }
+            
+            print(headers)
+
+            # Make the GET request
+            response = requests.get(url, headers=headers)
+
+            # Print the response (optional)
+            resp_info = response.json()
+
+            print(resp_info)
+
+            self.active_workspace = resp_info["metadata"]["active_workspace"]
+            self.uid = resp_info["metadata"]["uid"]
+
+            print("Recieved the following information")
+            print(self.active_workspace)
+            print(self.uid)
+            print("_____")
+
+
+        except Exception as E:
+            print(E)
+            self.error_message = E 
+            print("Issue with the authentification")
+
+        # Create a project that is shared with everyone, and where the UserToken of the logged in user is the creator 
+
+        url = "https://enernite-odin.duckdns.org/nocode/qgis_project_initiation"
+
+        headers = {
+        }
+        
+        payload = {
+                'jwt': str(self.bearer_token),
+                'name': 'Trial',
+                'shared_in_workspace': 'True', 
+                'workspace_id': str(self.active_workspace),
+                'user_id': str(self.uid)
+                }
+
+        response = requests.post(url, data=payload, headers=headers)
+
+        if response.status_code == 200:
+            response = json.loads(response.text)
+            project_id = response[0]["project_id"]
+
+            print(f"Project initiated successfully with ID: {project_id}")
+
+            # Access all the files in the QGIS project
+            # Access the current project
+            project = QgsProject.instance()
+
+            # Iterate through the layers in the project
+            for layer_id, layer in project.mapLayers().items():
+                # Get the source file path of the layer
+                path = layer.source()
+
+                print(path)
+
+
+                url = "https://api.enernite.com/assets/dataset/project/upload"
+
+                params = {
+                    "project_id": project_id,
+                    "crs": 4326, # TODO: Should be correct CRS
+                    "refresh_user": "true"
+                }
+
+                print("Params are")
+                print(params)
+
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {self.bearer_token}",
+                }
+                print("Headers are")
+                print(headers)
+
+                file_path = path.split("|")[0]
+                name = path.split('/')[-1]
+                name_wo_ending = name.split(".")[0]
+
+                print(path, name_wo_ending)
+
+                # # Get the vector layer (replace 'path', 'name', and 'provider' as needed)
+                # provider = 'ogr' 
+                # layer = QgsVectorLayer(path, name_wo_ending, provider)
+
+                with open(file_path, 'rb') as file:
+                    content = file.read()
+                    print(content)
+                    files = {'geo_file': (name, content)}
+                    response = requests.post(url, params=params, headers=headers, files=files)
+
+                raw_request = response.request
+
+                print('Raw Request Method:', raw_request.method)
+                print('Raw Request URL:', raw_request.url)
+                print('Raw Request Headers:', raw_request.headers)
+                print('Raw Request Body:', raw_request.body)
+                
+                if response.status_code == 200:
+                    print(f"File {path} uploaded successfully")
+                else:
+                    print(f"Failed to upload file {path}: {response.text}")
+        else:
+            print(f"Failed to initiate project: {response.text}")
+
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
