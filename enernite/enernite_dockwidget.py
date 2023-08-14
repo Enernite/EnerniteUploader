@@ -19,6 +19,11 @@ import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtGui import QDesktopServices
+from qgis.PyQt.QtCore import QUrl
+from qgis.core import Qgis
+
+
 
 from qgis.core import QgsCredentials
 
@@ -26,6 +31,7 @@ from qgis.core import QgsProject, QgsVectorLayer, QgsJsonUtils
 
 import json
 
+from .uploader.layer_prepare import LayerExporter
 
 import requests
 
@@ -62,6 +68,11 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.ui.signInButton.clicked.connect(self.on_sign_in_clicked)
         self.ui.uploadToProjectButton.clicked.connect(self.on_upload_to_project_clicked)
 
+        self.ui.usernameLoggedIn.hide()
+        self.ui.loaderProgressBar.hide()
+        self.ui.projectUploadedButton.hide() 
+
+
     def on_sign_in_clicked(self):
         username = self.ui.usernameField.text()
         password = self.ui.passwordField.text()
@@ -93,11 +104,24 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.ui.passwordField.hide()
             self.ui.signInButton.hide()
             self.ui.passwordLabel.hide()
+            self.ui.usernameField.hide()
+            self.ui.usernameLabel.hide()
+
+            self.ui.usernameLoggedIn.setText(f"Logged in as {username}")
+            self.ui.usernameLoggedIn.show()
+
+            
 
         else:
             # Handle the error
             # You may want to display an error message to the user
             print("Password was not correct")
+
+    def open_url(self):
+        url = f"https://go.enernite.com/projects/{self.project_id}"
+        QDesktopServices.openUrl(QUrl(url))
+        return None
+
     
     def on_upload_to_project_clicked(self):
         print("Initiates the uploading sequence")
@@ -107,20 +131,14 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         try:
             url = 'https://api.enernite.com/auth/user/'
             headers = {
-                'accept': 'application/json',
-                'Authorization': "Bearer " + str(self.bearer_token)
-                }
-            
-            print(headers)
-
+                        'accept': 'application/json',
+                        'Authorization': "Bearer " + str(self.bearer_token)
+                        }
             # Make the GET request
             response = requests.get(url, headers=headers)
 
             # Print the response (optional)
             resp_info = response.json()
-
-            print(resp_info)
-
             self.active_workspace = resp_info["metadata"]["active_workspace"]
             self.uid = resp_info["metadata"]["uid"]
 
@@ -128,7 +146,6 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             print(self.active_workspace)
             print(self.uid)
             print("_____")
-
 
         except Exception as E:
             print(E)
@@ -138,10 +155,7 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # Create a project that is shared with everyone, and where the UserToken of the logged in user is the creator 
 
         url = "https://enernite-odin.duckdns.org/nocode/qgis_project_initiation"
-
-        headers = {
-        }
-        
+        headers = {}
         payload = {
                 'jwt': str(self.bearer_token),
                 'name': 'Trial',
@@ -155,68 +169,96 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if response.status_code == 200:
             response = json.loads(response.text)
             project_id = response[0]["project_id"]
-
+            self.project_id = project_id
             print(f"Project initiated successfully with ID: {project_id}")
+            # projectUploadedTextLabel EDIT THE ProjectUploadedTextLabel
+
+            self.ui.projectUploadedButton.setEnabled(True)
+            self.ui.projectUploadedButton.show()
+            self.ui.projectUploadedButton.clicked.connect(self.open_url)
+
+
 
             # Access all the files in the QGIS project
-            # Access the current project
             project = QgsProject.instance()
+            transform_context = project.transformContext()
 
-            # Iterate through the layers in the project
-            for layer_id, layer in project.mapLayers().items():
-                # Get the source file path of the layer
-                path = layer.source()
-
-                print(path)
+            exporter = LayerExporter(transform_context)
 
 
-                url = "https://api.enernite.com/assets/dataset/project/upload"
+            self.ui.loaderProgressBar.show()
+            length_of_project = len(project.mapLayers().items()) 
 
-                params = {
-                    "project_id": project_id,
-                    "crs": 4326, # TODO: Should be correct CRS
-                    "refresh_user": "true"
-                }
+            try:
 
-                print("Params are")
-                print(params)
+                # Iterate through the layers in the project
+                for layer_id, layer in project.mapLayers().items():
+                    if exporter.can_export_layer(layer):
+                        try:
+                            # Export the vector layer using the export_vector_layer method
+                            result = exporter.export_vector_layer(layer)
+                            # Here you can handle the result as needed
+                            new_layer_uri, dest_file = result
+                            print("Export successful:", new_layer_uri)
 
-                headers = {
-                    "accept": "application/json",
-                    "Authorization": f"Bearer {self.bearer_token}",
-                }
-                print("Headers are")
-                print(headers)
+                        except Exception as e:
+                            print("Export failed for layer:", layer_id)
+                            print("Error:", str(e))
+                            continue
+                        
+                        try:
+                            # Get the source file path of the layer
+                            # style = LayerExporter.representative_layer_style(layer)
+                            
 
-                file_path = path.split("|")[0]
-                name = path.split('/')[-1]
-                name_wo_ending = name.split(".")[0]
+                            url = "https://api.enernite.com/assets/dataset/project/upload"
+                            params = {
+                                "project_id": project_id,
+                                "crs": 4326, # TODO: Should be correct CRS
+                                "refresh_user": "true"
+                            }
+                            headers = {
+                                "accept": "application/json",
+                                "Authorization": f"Bearer {self.bearer_token}",
+                            }
+                            
 
-                print(path, name_wo_ending)
+                            with open(new_layer_uri, 'rb') as file:
+                                content = file.read()
+                                files = {'geo_file': (str(layer.name()) + ".gpkg", content)}
+                                response = requests.post(url, params=params, headers=headers, files=files)
 
-                # # Get the vector layer (replace 'path', 'name', and 'provider' as needed)
-                # provider = 'ogr' 
-                # layer = QgsVectorLayer(path, name_wo_ending, provider)
+                            if response.status_code == 200:
+                                print(f"File {dest_file} uploaded successfully")
 
-                with open(file_path, 'rb') as file:
-                    content = file.read()
-                    print(content)
-                    files = {'geo_file': (name, content)}
-                    response = requests.post(url, params=params, headers=headers, files=files)
+                                dataset_id = json.loads(response.content)["dataset_ids"]
+                                style = LayerExporter.representative_layer_style(layer)
 
-                raw_request = response.request
+                                print(style)
 
-                print('Raw Request Method:', raw_request.method)
-                print('Raw Request URL:', raw_request.url)
-                print('Raw Request Headers:', raw_request.headers)
-                print('Raw Request Body:', raw_request.body)
-                
-                if response.status_code == 200:
-                    print(f"File {path} uploaded successfully")
-                else:
-                    print(f"Failed to upload file {path}: {response.text}")
+                                if style != {}:
+                                    # Add the styling 
+                                    url = f"https://api.enernite.com/assets/dataset/project/"
+                                    json_body = {"id": dataset_id, "style": style, "project_id": project_id}
+                                    print(style)
+                                    response = requests.post(url, params=json_body, headers=headers)
+                                
+                            else:
+                                print(f"Failed to upload file {new_layer_uri}: {response.text}")
+                        except Exception as E:
+                            print(E)
+
+
+
+                # exporter.__del__()
+            except Exception as E:
+                print(E)
+                # exporter.__del__()
+
+
         else:
             print(f"Failed to initiate project: {response.text}")
+
 
 
     def closeEvent(self, event):

@@ -38,9 +38,6 @@ from qgis.core import QgsMessageLog, Qgis
 print("V9")
 
 
-
-
-
 class EnerniteUploader:
     """QGIS Plugin Implementation."""
 
