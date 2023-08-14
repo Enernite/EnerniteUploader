@@ -23,7 +23,7 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtCore import QUrl
 from qgis.core import Qgis
 
-
+import time
 
 from qgis.core import QgsCredentials
 
@@ -177,84 +177,74 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.ui.projectUploadedButton.show()
             self.ui.projectUploadedButton.clicked.connect(self.open_url)
 
-
-
             # Access all the files in the QGIS project
             project = QgsProject.instance()
             transform_context = project.transformContext()
-
             exporter = LayerExporter(transform_context)
-
 
             self.ui.loaderProgressBar.show()
             length_of_project = len(project.mapLayers().items()) 
 
-            try:
+            # Iterate through the layers in the project
+            for layer_id, layer in project.mapLayers().items():
+                if exporter.can_export_layer(layer):
+                    try:
+                        # Export the vector layer using the export_vector_layer method
+                        result = exporter.export_vector_layer(layer)
+                        # Here you can handle the result as needed
+                        new_layer_uri, dest_file = result
+                        print("Export successful:", new_layer_uri)
 
-                # Iterate through the layers in the project
-                for layer_id, layer in project.mapLayers().items():
-                    if exporter.can_export_layer(layer):
-                        try:
-                            # Export the vector layer using the export_vector_layer method
-                            result = exporter.export_vector_layer(layer)
-                            # Here you can handle the result as needed
-                            new_layer_uri, dest_file = result
-                            print("Export successful:", new_layer_uri)
-
-                        except Exception as e:
-                            print("Export failed for layer:", layer_id)
-                            print("Error:", str(e))
-                            continue
+                    except Exception as e:
+                        print("Export failed for layer:", layer_id)
+                        print("Error:", str(e))
+                        continue
+                    
+                    try:
+                        # Get the source file path of the layer
+                        # style = LayerExporter.representative_layer_style(layer)
                         
-                        try:
-                            # Get the source file path of the layer
-                            # style = LayerExporter.representative_layer_style(layer)
-                            
 
-                            url = "https://api.enernite.com/assets/dataset/project/upload"
-                            params = {
-                                "project_id": project_id,
-                                "crs": 4326, # TODO: Should be correct CRS
-                                "refresh_user": "true"
-                            }
-                            headers = {
-                                "accept": "application/json",
-                                "Authorization": f"Bearer {self.bearer_token}",
-                            }
-                            
+                        url = "https://api.enernite.com/assets/dataset/project/upload"
+                        params = {
+                            "project_id": project_id,
+                            "crs": 4326, # TODO: Should be correct CRS
+                            "refresh_user": "true"
+                        }
+                        headers = {
+                            "accept": "application/json",
+                            "Authorization": f"Bearer {self.bearer_token}",
+                        }
+                        
+                        time.sleep(0.5)
 
-                            with open(new_layer_uri, 'rb') as file:
-                                content = file.read()
-                                files = {'geo_file': (str(layer.name()) + ".gpkg", content)}
-                                response = requests.post(url, params=params, headers=headers, files=files)
+                        with open(dest_file, 'rb') as file:
+                            content = file.read()
+                            files = {'geo_file': (str(layer.name()) + ".gpkg", content)}
+                            response = requests.post(url, params=params, headers=headers, files=files)
 
-                            if response.status_code == 200:
-                                print(f"File {dest_file} uploaded successfully")
 
-                                dataset_id = json.loads(response.content)["dataset_ids"]
-                                style = LayerExporter.representative_layer_style(layer)
+                        if response.status_code == 200:
+                            print(f"File {new_layer_uri} uploaded successfully")
 
+                            dataset_id = json.loads(response.content)["dataset_ids"]
+                            style = LayerExporter.representative_layer_style(layer)
+
+                            print(style)
+
+                            if style != {}:
+                                # Add the styling 
+                                url = f"https://api.enernite.com/assets/dataset/project/"
+                                json_body = {"id": dataset_id, "style": style, "project_id": project_id}
                                 print(style)
+                                response = requests.post(url, params=json_body, headers=headers)
+                            
+                        else:
+                            print(f"Failed to upload file {new_layer_uri}: {response.text}")
+                    except Exception as E:
+                        print(E)
 
-                                if style != {}:
-                                    # Add the styling 
-                                    url = f"https://api.enernite.com/assets/dataset/project/"
-                                    json_body = {"id": dataset_id, "style": style, "project_id": project_id}
-                                    print(style)
-                                    response = requests.post(url, params=json_body, headers=headers)
-                                
-                            else:
-                                print(f"Failed to upload file {new_layer_uri}: {response.text}")
-                        except Exception as E:
-                            print(E)
-
-
-
-                # exporter.__del__()
-            except Exception as E:
-                print(E)
-                # exporter.__del__()
-
+            exporter.__del__()
 
         else:
             print(f"Failed to initiate project: {response.text}")

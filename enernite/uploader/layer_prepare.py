@@ -29,6 +29,7 @@ class LayerExporter(QObject):
         self.transform_context = transform_context
         self.temp_dir =  tempfile.mkdtemp() 
         
+        
 
     @staticmethod
     def can_export_layer(layer: QgsMapLayer) -> bool:
@@ -80,10 +81,11 @@ class LayerExporter(QObject):
         # TODO: complete
         pass
 
-    def generate_file_name(self, suffix):
+    def generate_file_name(self, suffix, name="tempfile"):
         # Generate temporary file name using unique identifier
-        temp_file = os.path.join(self.temp_dir, f"temp_{suffix}.tmp")
-        return temp_file
+        # temp_file = os.path.join(self.temp_dir, f"temp_{suffix}.tmp")
+        temp_file_path = os.path.join(self.temp_dir, str(name) + '.tmp')
+        return temp_file_path
 
     def export_raster_layer(self, layer: QgsVectorLayer):
         # Export vector layer to GeoPackage format
@@ -97,7 +99,7 @@ class LayerExporter(QObject):
         # Set up export options, coordinate transformations
         # Use QgsRasterFileWriter to write raster data
 
-        dest_file = self.generate_file_name('.gpkg')
+        dest_file = self.generate_file_name('.gpkg', layer.name())
         writer_options = QgsVectorFileWriter.SaveVectorOptions()
         writer_options.driverName = 'GPKG'
         writer_options.layerName = 'parsed'
