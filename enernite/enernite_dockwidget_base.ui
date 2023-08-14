@@ -18,14 +18,20 @@
     <!-- New banner widget -->
 
     <item>
-     <widget class="QLabel" name="bannerLabel">
-      <property name="text">
-       <string>This is the Enernite Uploader</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
+    <widget class="QLabel" name="bannerLabel">
+        <property name="text">
+        <string>Enernite Uploader</string>
+        </property>
+        <property name="alignment">
+        <set>Qt::AlignCenter</set>
+        </property>
+        <property name="font">
+        <font>
+            <pointsize>20</pointsize> <!-- Set the size you want -->
+            <bold>true</bold> <!-- Make it bold -->
+        </font>
+        </property>
+    </widget>
     </item>
 
     <item>
@@ -95,13 +101,22 @@
       </item>
       
       <!-- New item: Loader bar -->
-      <item row="5" column="0" columnspan="2">
-       <widget class="QProgressBar" name="loaderProgressBar">
+    <item row="5" column="0" columnspan="2">
+    <widget class="QProgressBar" name="loaderProgressBar">
         <property name="hidden">
-         <bool>false</bool>
+        <bool>false</bool>
         </property>
-       </widget>
-      </item>
+        <property name="minimum">
+        <number>0</number>
+        </property>
+        <property name="maximum">
+        <number>100</number>
+        </property>
+        <property name="value">
+        <number>50</number>
+        </property>
+    </widget>
+    </item>
 
       <!-- New item: Project uploaded text field -->
       

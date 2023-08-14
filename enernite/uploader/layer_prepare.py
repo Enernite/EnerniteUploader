@@ -58,21 +58,19 @@ class LayerExporter(QObject):
         # Get the layer by name from the project
 
         # This is a simplified method, and only works for simple fill colors
-        try:
-            # Get the layer's current style
-            style_manager = QgsMapLayerStyleManager(layer)
-            current_style = style_manager.currentStyle()
+        # Get the layer's current style
+        style_manager = QgsMapLayerStyleManager(layer)
+        current_style = style_manager.currentStyle()
 
-            # Get the fill color and stroke color from the style
-            fill_color = current_style.symbol().color()
-            stroke_color = current_style.symbol().strokeColor()
+        # Get the fill color and stroke color from the style
+        fill_color = current_style.symbol().color()
+        stroke_color = current_style.symbol().strokeColor()
 
-            # Print the fill color and stroke color
-            print("Fill Color:", fill_color.name())
-            print("Stroke Color:", stroke_color.name())
-            return {"fill-color": fill_color.name() , "line-color": stroke_color.name()}
-        except:
-            return {}
+        # Print the fill color and stroke color
+        print("Fill Color:", fill_color.name())
+        print("Stroke Color:", stroke_color.name())
+        return {"fill-color": fill_color.name() , "line-color": stroke_color.name()}
+
 
     @staticmethod
     def symbol_to_layer_style(symbol):
@@ -84,7 +82,7 @@ class LayerExporter(QObject):
     def generate_file_name(self, suffix, name="tempfile"):
         # Generate temporary file name using unique identifier
         # temp_file = os.path.join(self.temp_dir, f"temp_{suffix}.tmp")
-        temp_file_path = os.path.join(self.temp_dir, str(name) + '.tmp')
+        temp_file_path = os.path.join(self.temp_dir, str(name))
         return temp_file_path
 
     def export_raster_layer(self, layer: QgsVectorLayer):
@@ -139,24 +137,20 @@ class LayerExporter(QObject):
                                                                                                     self.transform_context,
                                                                                                     writer_options,
                                                                                                     )
+        
+        print("RES:", res)
+        
 
         if res not in (QgsVectorFileWriter.WriterError.NoError,
                 QgsVectorFileWriter.WriterError.Canceled):
             raise LayerPackagingException(error_message)
 
-        # layer_export_result = {
-        #     QgsVectorFileWriter.WriterError.NoError:
-        #         LayerExportResult.Success,
-        #     QgsVectorFileWriter.WriterError.Canceled:
-        #         LayerExportResult.Canceled,
-        # }[res]
-
-
 
         # Validate result
-        new_layer_uri = new_filename
         if new_layer_name:
-            new_layer_uri += '|layername=' + new_layer_name
+            new_layer_uri = new_filename + '|layername=' + new_layer_name
+
+
         res_layer = QgsVectorLayer(
             new_layer_uri, 'test', 'ogr'
         )
@@ -170,7 +164,10 @@ class LayerExporter(QObject):
                         )
         
         # Here the result should be returned 
-        return {new_filename, dest_file}
+        print("NEW FILENAME:", new_filename)
+        print("DEST FILE:", dest_file)
+
+        return new_filename
 
     def __del__(self):
         # Clean up temporary files when the object is deleted

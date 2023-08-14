@@ -21,6 +21,10 @@ class Ui_EnerniteUploaderDockWidgetBase(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.bannerLabel = QtWidgets.QLabel(self.dockWidgetContents)
         self.bannerLabel.setAlignment(QtCore.Qt.AlignCenter)
+        font = QtGui.QFont()
+        font.setPointSize(20)
+        font.setBold(True)
+        self.bannerLabel.setFont(font)
         self.bannerLabel.setObjectName("bannerLabel")
         self.verticalLayout.addWidget(self.bannerLabel)
         self.usernameLoggedIn = QtWidgets.QLabel(self.dockWidgetContents)
@@ -69,7 +73,7 @@ class Ui_EnerniteUploaderDockWidgetBase(object):
     def retranslateUi(self, EnerniteUploaderDockWidgetBase):
         _translate = QtCore.QCoreApplication.translate
         EnerniteUploaderDockWidgetBase.setWindowTitle(_translate("EnerniteUploaderDockWidgetBase", "Enernite Uploader"))
-        self.bannerLabel.setText(_translate("EnerniteUploaderDockWidgetBase", "This is the Enernite Uploader"))
+        self.bannerLabel.setText(_translate("EnerniteUploaderDockWidgetBase", "Enernite Uploader"))
         self.usernameLoggedIn.setText(_translate("EnerniteUploaderDockWidgetBase", "Logged in as {USER}"))
         self.usernameLabel.setText(_translate("EnerniteUploaderDockWidgetBase", "Username:"))
         self.passwordLabel.setText(_translate("EnerniteUploaderDockWidgetBase", "Password:"))

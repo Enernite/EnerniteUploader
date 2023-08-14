@@ -164,7 +164,9 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 'user_id': str(self.uid)
                 }
 
+        self.ui.projectUploadedButton.show()
         response = requests.post(url, data=payload, headers=headers)
+
 
         if response.status_code == 200:
             response = json.loads(response.text)
@@ -174,7 +176,6 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             # projectUploadedTextLabel EDIT THE ProjectUploadedTextLabel
 
             self.ui.projectUploadedButton.setEnabled(True)
-            self.ui.projectUploadedButton.show()
             self.ui.projectUploadedButton.clicked.connect(self.open_url)
 
             # Access all the files in the QGIS project
@@ -186,14 +187,18 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             length_of_project = len(project.mapLayers().items()) 
 
             # Iterate through the layers in the project
-            for layer_id, layer in project.mapLayers().items():
+            for i, items in enumerate(project.mapLayers().items()):
+                
+                layer_id, layer = items
+
+                progress = int((i/length_of_project)*100) 
+                self.ui.loaderProgressBar.setValue(progress)
+
                 if exporter.can_export_layer(layer):
                     try:
                         # Export the vector layer using the export_vector_layer method
-                        result = exporter.export_vector_layer(layer)
-                        # Here you can handle the result as needed
-                        new_layer_uri, dest_file = result
-                        print("Export successful:", new_layer_uri)
+                        new_filename = exporter.export_vector_layer(layer)
+
 
                     except Exception as e:
                         print("Export failed for layer:", layer_id)
@@ -216,16 +221,15 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                             "Authorization": f"Bearer {self.bearer_token}",
                         }
                         
-                        time.sleep(0.5)
 
-                        with open(dest_file, 'rb') as file:
+                        with open(new_filename, 'rb') as file:
                             content = file.read()
                             files = {'geo_file': (str(layer.name()) + ".gpkg", content)}
                             response = requests.post(url, params=params, headers=headers, files=files)
 
 
                         if response.status_code == 200:
-                            print(f"File {new_layer_uri} uploaded successfully")
+                            print(f"File {new_filename} uploaded successfully")
 
                             dataset_id = json.loads(response.content)["dataset_ids"]
                             style = LayerExporter.representative_layer_style(layer)
@@ -240,11 +244,18 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                                 response = requests.post(url, params=json_body, headers=headers)
                             
                         else:
-                            print(f"Failed to upload file {new_layer_uri}: {response.text}")
+                            print(f"Failed to upload file {new_filename}: {response.text}")
                     except Exception as E:
                         print(E)
+                    
 
+
+                    # Add to the progress
+                    
+
+                
             exporter.__del__()
+            self.ui.loaderProgressBar.hide()
 
         else:
             print(f"Failed to initiate project: {response.text}")
