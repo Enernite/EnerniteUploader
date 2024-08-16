@@ -71,6 +71,8 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.ui.usernameLoggedIn.hide()
         self.ui.loaderProgressBar.hide()
         self.ui.projectUploadedButton.hide() 
+        self.ui.projectNameField.hide()
+        self.ui.projectNameLabel.hide() 
 
 
     def on_sign_in_clicked(self):
@@ -110,8 +112,9 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.ui.usernameLoggedIn.setText(f"Logged in as {username}")
             self.ui.usernameLoggedIn.show()
 
+            self.ui.projectNameField.show()
+            self.ui.projectNameLabel.show() 
             
-
         else:
             # Handle the error
             # You may want to display an error message to the user
@@ -121,9 +124,19 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         url = f"https://go.enernite.com/projects/{self.project_id}"
         QDesktopServices.openUrl(QUrl(url))
         return None
+    
+    def get_project_name(self):
+        project_name =  'Untitled Project'
+        if self.ui.projectNameField.text() != "":
+            project_name = self.ui.projectNameField.text()
+        return project_name
+
 
     
     def on_upload_to_project_clicked(self):
+
+        project_name = self.get_project_name()
+
         print("Initiates the uploading sequence")
 
         # We need to retrieve the workspace and userID of the user, it is OK if this is done each time the user clicks "UploadToPorject"
@@ -158,7 +171,7 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         headers = {}
         payload = {
                 'jwt': str(self.bearer_token),
-                'name': 'Trial',
+                'name': project_name,
                 'shared_in_workspace': 'True', 
                 'workspace_id': str(self.active_workspace),
                 'user_id': str(self.uid)
@@ -177,6 +190,7 @@ class EnerniteUploaderDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
             self.ui.projectUploadedButton.setEnabled(True)
             self.ui.projectUploadedButton.clicked.connect(self.open_url)
+
 
             # Access all the files in the QGIS project
             project = QgsProject.instance()
